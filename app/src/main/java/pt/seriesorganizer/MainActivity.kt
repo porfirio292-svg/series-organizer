@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
             val relatedSubs = files.filter { sub ->
                 val subName = sub.name ?: return@filter false
                 val subExt = subName.substringAfterLast('.', "").lowercase()
-                subExt in subExts && parseEpisode(subName) == ep
+                subExt in subExt && parseEpisode(subName) == ep
             }
             relatedSubs.forEach { sub ->
                 val old = sub.name!!
@@ -145,10 +145,11 @@ class MainActivity : ComponentActivity() {
 
     private fun applyRenames(plan: List<RenameItem>): String {
         val folder = plan.firstOrNull()?.file?.parentFile ?: return "Não existem ficheiros para renomear."
-        val existing = folder.listFiles().mapNotNull { it.name }.map { it.lowercase() }.toMutableSet()
         val changed = mutableListOf<Pair<DocumentFile, String>>()
         val pending = plan.filter { it.oldName != it.newName }
-        if (pending.any { it.newName.lowercase() in existing && it.oldName != it.newName }) {
+        val sourceNames = pending.map { it.oldName.lowercase() }.toSet()
+        val existingTargets = folder.listFiles().mapNotNull { it.name }.map { it.lowercase() }.toSet() - sourceNames
+        if (pending.any { it.newName.lowercase() in existingTargets }) {
             return "Operação cancelada: já existem ficheiros com um dos nomes de destino. Não foi alterado nenhum ficheiro."
         }
         // Two-phase rename avoids collisions when source names already resemble destination names.
