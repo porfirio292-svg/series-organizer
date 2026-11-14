@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
         val folder = DocumentFile.fromTreeUri(this, uri) ?: return emptyList<RenameItem>() to "Não foi possível abrir a pasta."
         val files = folder.listFiles().filter { it.isFile && it.name != null }
         val videoExt = setOf("mkv", "mp4", "avi", "mov", "m4v", "wmv", "webm", "ts")
-        val subExt = setOf("srt", "ass", "ssa", "sub", "vtt")
+        val subtitleExtensions = setOf("srt", "ass", "ssa", "sub", "vtt")
         val videos = files.mapNotNull { f ->
             val name = f.name ?: return@mapNotNull null
             val ext = name.substringAfterLast('.', "").lowercase()
@@ -109,16 +109,13 @@ class MainActivity : ComponentActivity() {
             plan += RenameItem(video, video.name!!, "$base.$ext", "Vídeo")
             val relatedSubs = files.filter { sub ->
                 val subName = sub.name ?: return@filter false
-                val subExt = subName.substringAfterLast('.', "").lowercase()
-                subExt in subExt && parseEpisode(subName) == ep
+                val subtitleExt = subName.substringAfterLast('.', "").lowercase()
+                subtitleExt in subtitleExtensions && parseEpisode(subName) == ep
             }
             relatedSubs.forEach { sub ->
                 val old = sub.name!!
                 val suffix = old.substringAfterLast('.', "")
-                val stem = old.substringBeforeLast('.', old)
-                val lang = Regex("""(?i)(?:^|[._ -])(pt(?:-pt)?|en|eng|es|spa|fr|fre|de|ger|it|nl|pl|ru|ja|zh)(?:$|[._ -])""")
-                    .find(stem)?.groupValues?.get(1)
-                val newName = if (lang != null) "$base.${lang.lowercase()}.$suffix" else "$base.$suffix"
+                val newName = "$base.$suffix"
                 plan += RenameItem(sub, old, newName, "Legenda")
             }
         }
@@ -154,7 +151,8 @@ class MainActivity : ComponentActivity() {
         }
         // Two-phase rename avoids collisions when source names already resemble destination names.
         pending.forEachIndexed { index, item ->
-            val temp = ".__seriesorganizer_tmp_$index"
+            val extension = item.oldName.substringAfterLast('.', "")
+            val temp = if (extension.isNotEmpty()) ".__seriesorganizer_tmp_$index.$extension" else ".__seriesorganizer_tmp_$index"
             if (!item.file.renameTo(temp)) {
                 changed.asReversed().forEach { (file, original) -> file.renameTo(original) }
                 return "Falha ao preparar a renomeação. Foi tentada a reposição dos nomes originais."
