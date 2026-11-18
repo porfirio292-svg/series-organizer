@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kodi Series File Organizer</string>
+    <string name="app_description">Organiza vídeos e legendas numa única pasta, usando a temporada e o episódio indicados nos nomes originais.</string>
+    <string name="select_folder">Selecionar pasta</string>
+    <string name="select_folder_hint">Seleciona a pasta que contém os episódios.</string>
+    <string name="folder_permission_error">Não foi possível obter autorização para aceder à pasta.</string>
+    <string name="folder_read_error">Não foi possível ler a pasta selecionada.</string>
+    <string name="folder_open_error">Não foi possível abrir a pasta.</string>
+    <string name="files_in_folder">Ficheiros na pasta (%1$d)</string>
+    <string name="no_supported_files">Não foram encontrados ficheiros MKV, MP4, AVI ou SRT.</string>
+    <string name="rename">Renomear</string>
+    <string name="rename_file_title">Renomear ficheiro</string>
+    <string name="new_file_name">Novo nome (sem extensão)</string>
+    <string name="extension_kept">A extensão .%1$s será mantida.</string>
+    <string name="confirm">Confirmar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="name_empty_error">O nome do ficheiro não pode ficar vazio.</string>
+    <string name="name_invalid_error">O nome do ficheiro não pode conter / ou \\.</string>
+    <string name="name_exists_error">Já existe um ficheiro com esse nome.</string>
+    <string name="rename_verify_error">A alteração foi solicitada, mas não foi possível confirmar o novo nome. A lista será atualizada.</string>
+    <string name="rename_failed_error">Não foi possível renomear o ficheiro. Verifica as permissões da pasta e tenta novamente.</string>
+    <string name="manual_rename_success">Ficheiro renomeado para %1$s.</string>
+    <string name="auto_organization_preview">Pré-visualização da organização automática (%1$d alterações)</string>
+    <string name="organizing">A organizar...</string>
+    <string name="apply_rename">Aplicar renomeação</string>
+    <string name="rename_unexpected_error">Ocorreu um erro inesperado durante a renomeação. A lista será atualizada.</string>
+    <string name="no_episode_videos">Não foram encontrados vídeos com temporada/episódio reconhecíveis (ex.: S01E01 ou 1x01).</string>
+    <string name="preview_status">Pré-visualização: %1$d alterações possíveis. %2$d ficheiros ignorados por nomes de destino repetidos.</string>
+    <string name="nothing_to_rename">Não existem ficheiros para renomear.</string>
+    <string name="already_organized">Os ficheiros já estão organizados.</string>
+    <string name="auto_rename_conflict">Operação cancelada: já existe um ficheiro com um dos nomes de destino. Não foi alterado nenhum ficheiro.</string>
+    <string name="auto_rename_prepare_failed">Não foi possível preparar a renomeação de %1$s. Foi tentada a reposição dos nomes originais.</string>
+    <string name="auto_rename_finish_failed">Não foi possível concluir a renomeação de %1$s. Foi tentada a reposição dos nomes originais.</string>
+    <string name="auto_rename_success">Concluído: %1$d ficheiros renomeados e verificados com sucesso.</string>
+    <string name="auto_rename_verify_failed">Atenção: a operação terminou, mas não foi possível validar: %1$s.</string>
+</resources>
