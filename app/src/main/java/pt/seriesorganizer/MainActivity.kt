@@ -11,9 +11,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import java.util.Locale
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 
 data class RenameItem(val file: DocumentFile, val oldName: String, val newName: String, val kind: String)
 data class Episode(val season: Int, val episode: Int) : Comparable<Episode> {
@@ -34,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MobileAds.initialize(this)
         setContent {
             MaterialTheme {
                 var items by remember { mutableStateOf<List<RenameItem>>(emptyList()) }
@@ -90,6 +96,16 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text(if (busy) "A organizar..." else "Aplicar renomeação") }
                         }
+                        AndroidView(
+                            factory = { context ->
+                                AdView(context).apply {
+                                    setAdSize(AdSize.BANNER)
+                                    adUnitId = "ca-app-pub-3940256099942544/9214589741"
+                                    loadAd(AdRequest.Builder().build())
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                        )
                     }
                 }
             }
