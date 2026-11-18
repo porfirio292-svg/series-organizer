@@ -198,7 +198,7 @@ class MainActivity : ComponentActivity() {
                                             try {
                                                 val current = parent?.findFile(originalName)
                                                 if (current != null && current.renameTo(targetName)) {
-                                                    val verified = parent.findFile(targetName)
+                                                    val verified = parent?.findFile(targetName)
                                                     if (verified != null) {
                                                         selectedForRename = null
                                                         statusMessage = getString(R.string.manual_rename_success, targetName)
