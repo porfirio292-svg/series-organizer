@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
                                 val targetName = if (extension.isNotEmpty()) "$base.$extension" else base
                                 when {
                                     base.isBlank() -> renameError = getString(R.string.name_empty_error)
-                                    base.contains('/') || base.contains('\\') -> renameError = getString(R.string.name_invalid_error)
+                                    base.contains('/') || base.contains(92.toChar()) -> renameError = getString(R.string.name_invalid_error)
                                     targetName.equals(originalName, ignoreCase = true) -> selectedForRename = null
                                     else -> {
                                         val parent = file.parentFile
