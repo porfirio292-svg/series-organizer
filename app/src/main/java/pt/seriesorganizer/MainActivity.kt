@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
                                 val targetName = if (extension.isNotEmpty()) "$base.$extension" else base
                                 when {
                                     base.isBlank() -> renameError = getString(R.string.name_empty_error)
-                                    base.contains('/') || base.contains('\\\\') -> renameError = getString(R.string.name_invalid_error)
+                                    base.contains('/') || base.contains('\\') -> renameError = getString(R.string.name_invalid_error)
                                     targetName.equals(originalName, ignoreCase = true) -> selectedForRename = null
                                     else -> {
                                         val parent = file.parentFile
@@ -259,7 +259,7 @@ class MainActivity : ComponentActivity() {
                 val old = sub.name!!
                 val suffix = old.substringAfterLast('.', "")
                 val oldBase = old.substringBeforeLast('.', old)
-                val languageSuffix = Regex("""(?i)S\\d{1,2}[ ._-]*E\\d{1,3}([._ -].*)$""")
+                val languageSuffix = Regex("""(?i)S\d{1,2}[ ._-]*E\d{1,3}([._ -].*)$""")
                     .find(oldBase)?.groupValues?.getOrNull(1).orEmpty()
                 plan += RenameItem(sub, old, "$base$languageSuffix.$suffix", "Subtitle")
             }
@@ -272,9 +272,9 @@ class MainActivity : ComponentActivity() {
 
     private fun parseEpisode(name: String): Episode? {
         val patterns = listOf(
-            Regex("""(?i)(?:^|[^A-Za-z0-9])S(\\d{1,2})[ ._-]*E(\\d{1,3})(?:[^0-9]|$)"""),
-            Regex("""(?i)(?:^|[^0-9])(\\d{1,2})x(\\d{1,3})(?:[^0-9]|$)"""),
-            Regex("""(?i)season[ ._-]*(\\d{1,2}).{0,20}?episode[ ._-]*(\\d{1,3})""")
+            Regex("""(?i)(?:^|[^A-Za-z0-9])S(\d{1,2})[ ._-]*E(\d{1,3})(?:[^0-9]|$)"""),
+            Regex("""(?i)(?:^|[^0-9])(\d{1,2})x(\d{1,3})(?:[^0-9]|$)"""),
+            Regex("""(?i)season[ ._-]*(\d{1,2}).{0,20}?episode[ ._-]*(\d{1,3})""")
         )
         for (pattern in patterns) {
             val match = pattern.find(name) ?: continue
