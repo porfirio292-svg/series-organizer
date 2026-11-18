@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import java.util.Locale
@@ -25,79 +26,215 @@ class MainActivity : ComponentActivity() {
     private var selectedTree: Uri? = null
     private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            selectedTree = uri
-            refreshToken++
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                selectedTree = uri
+                refreshToken++
+            } catch (_: Exception) {
+                statusMessage = getString(R.string.folder_permission_error)
+            }
         }
     }
     private var refreshToken by mutableIntStateOf(0)
+    private var statusMessage by mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                var items by remember { mutableStateOf<List<RenameItem>>(emptyList()) }
-                var message by remember { mutableStateOf("Seleciona a pasta que contém os episódios.") }
+                var plan by remember { mutableStateOf<List<RenameItem>>(emptyList()) }
+                var folderFiles by remember { mutableStateOf<List<DocumentFile>>(emptyList()) }
+                var message by remember { mutableStateOf(getString(R.string.select_folder_hint)) }
                 var busy by remember { mutableStateOf(false) }
                 var previewed by remember { mutableStateOf(false) }
+                var selectedForRename by remember { mutableStateOf<DocumentFile?>(null) }
+                var editedBaseName by remember { mutableStateOf("") }
+                var renameError by remember { mutableStateOf<String?>(null) }
                 val treeUri = selectedTree
+
                 LaunchedEffect(refreshToken) {
                     if (treeUri != null) {
-                        val result = scan(treeUri)
-                        items = result.first
-                        message = result.second
-                        previewed = true
+                        try {
+                            val folder = DocumentFile.fromTreeUri(this@MainActivity, treeUri)
+                            folderFiles = folder?.listFiles()?.filter { it.isFile && isSupportedForManualRename(it.name) } ?: emptyList()
+                            val result = scan(treeUri)
+                            plan = result.first
+                            message = statusMessage.ifBlank { result.second }
+                            statusMessage = ""
+                            previewed = true
+                        } catch (_: Exception) {
+                            message = getString(R.string.folder_read_error)
+                        }
                     }
                 }
+
                 Surface(Modifier.fillMaxSize()) {
-                    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Kodi Series File Organizer", style = MaterialTheme.typography.headlineMedium)
-                        Text("Organiza vídeos e legendas numa única pasta, usando a temporada e o episódio indicados nos nomes originais.")
-                        Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) { Text("Selecionar pasta") }
+                    Column(
+                        Modifier.fillMaxSize().padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+                        Text(stringResource(R.string.app_description))
+                        Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
+                            Text(stringResource(R.string.select_folder))
+                        }
                         Text(message, style = MaterialTheme.typography.bodyMedium)
-                        if (previewed && items.isNotEmpty()) {
-                            Text("${items.size} ficheiros identificados", style = MaterialTheme.typography.titleMedium)
-                            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                items(items) { item ->
-                                    Card(Modifier.fillMaxWidth()) {
-                                        Column(Modifier.padding(10.dp)) {
-                                            Text(item.oldName, style = MaterialTheme.typography.bodySmall)
-                                            Text("→ ${item.newName}", style = MaterialTheme.typography.bodyMedium)
+
+                        if (previewed) {
+                            if (folderFiles.isNotEmpty()) {
+                                Text(stringResource(R.string.files_in_folder, folderFiles.size), style = MaterialTheme.typography.titleMedium)
+                                LazyColumn(
+                                    Modifier.weight(1f, fill = true),
+                                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    items(folderFiles, key = { it.uri.toString() }) { file ->
+                                        val name = file.name.orEmpty()
+                                        val extension = name.substringAfterLast('.', "")
+                                        val baseName = if (extension.isNotEmpty() && name.contains('.')) name.substringBeforeLast('.') else name
+                                        Card(Modifier.fillMaxWidth()) {
+                                            Row(
+                                                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(name, style = MaterialTheme.typography.bodySmall)
+                                                }
+                                                TextButton(
+                                                    enabled = !busy,
+                                                    onClick = {
+                                                        selectedForRename = file
+                                                        editedBaseName = baseName
+                                                        renameError = null
+                                                    }
+                                                ) { Text(stringResource(R.string.rename)) }
+                                            }
                                         }
                                     }
                                 }
+                            } else {
+                                Text(stringResource(R.string.no_supported_files))
                             }
-                            Button(
-                                enabled = !busy && items.any { it.oldName != it.newName },
-                                onClick = {
-                                    busy = true
-                                    val outcome = applyRenames(items)
-                                    val uri = selectedTree
-                                    if (uri != null) {
-                                        val result = scan(uri)
-                                        items = result.first
-                                        message = outcome
-                                        if (outcome.startsWith("Concluído:")) {
-                                            message += "\nValidação concluída. Os ficheiros foram novamente lidos e a aplicação está pronta para a próxima pasta."
-                                        } else {
-                                            message += "\n" + result.second
+
+                            if (plan.isNotEmpty()) {
+                                Text(stringResource(R.string.auto_organization_preview, plan.size), style = MaterialTheme.typography.titleMedium)
+                                LazyColumn(
+                                    Modifier.weight(0.8f, fill = true),
+                                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    items(plan, key = { it.file.uri.toString() }) { item ->
+                                        Card(Modifier.fillMaxWidth()) {
+                                            Column(Modifier.padding(9.dp)) {
+                                                Text(item.oldName, style = MaterialTheme.typography.bodySmall)
+                                                Text("→ ${item.newName}", style = MaterialTheme.typography.bodyMedium)
+                                            }
                                         }
-                                    } else {
-                                        message = outcome
                                     }
-                                    busy = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text(if (busy) "A organizar..." else "Aplicar renomeação") }
+                                }
+                                Button(
+                                    enabled = !busy && plan.any { it.oldName != it.newName },
+                                    onClick = {
+                                        busy = true
+                                        try {
+                                            val outcome = applyRenames(plan)
+                                            statusMessage = outcome
+                                            refreshToken++
+                                        } catch (_: Exception) {
+                                            message = getString(R.string.rename_unexpected_error)
+                                        } finally {
+                                            busy = false
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(if (busy) stringResource(R.string.organizing) else stringResource(R.string.apply_rename))
+                                }
+                            }
                         }
                     }
+                }
+
+                if (selectedForRename != null) {
+                    val file = selectedForRename!!
+                    val originalName = file.name.orEmpty()
+                    val extension = originalName.substringAfterLast('.', "")
+                    AlertDialog(
+                        onDismissRequest = { selectedForRename = null },
+                        title = { Text(stringResource(R.string.rename_file_title)) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = editedBaseName,
+                                    onValueChange = { editedBaseName = it; renameError = null },
+                                    label = { Text(stringResource(R.string.new_file_name)) },
+                                    singleLine = true
+                                )
+                                if (extension.isNotEmpty()) {
+                                    Text(stringResource(R.string.extension_kept, extension), style = MaterialTheme.typography.bodySmall)
+                                }
+                                if (renameError != null) {
+                                    Text(renameError!!, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val base = editedBaseName.trim()
+                                val targetName = if (extension.isNotEmpty()) "$base.$extension" else base
+                                when {
+                                    base.isBlank() -> renameError = getString(R.string.name_empty_error)
+                                    base.contains('/') || base.contains('\\\\') -> renameError = getString(R.string.name_invalid_error)
+                                    targetName.equals(originalName, ignoreCase = true) -> selectedForRename = null
+                                    else -> {
+                                        val parent = file.parentFile
+                                        val duplicate = parent?.listFiles()?.any {
+                                            it.name.equals(targetName, ignoreCase = true) && it.uri != file.uri
+                                        } == true
+                                        if (duplicate) {
+                                            renameError = getString(R.string.name_exists_error)
+                                        } else {
+                                            try {
+                                                val current = parent?.findFile(originalName)
+                                                if (current != null && current.renameTo(targetName)) {
+                                                    val verified = parent.findFile(targetName)
+                                                    if (verified != null) {
+                                                        selectedForRename = null
+                                                        statusMessage = getString(R.string.manual_rename_success, targetName)
+                                                        refreshToken++
+                                                    } else {
+                                                        renameError = getString(R.string.rename_verify_error)
+                                                        refreshToken++
+                                                    }
+                                                } else {
+                                                    renameError = getString(R.string.rename_failed_error)
+                                                }
+                                            } catch (_: Exception) {
+                                                renameError = getString(R.string.rename_failed_error)
+                                            }
+                                        }
+                                    }
+                                }
+                            }) { Text(stringResource(R.string.confirm)) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { selectedForRename = null }) { Text(stringResource(R.string.cancel)) }
+                        }
+                    )
                 }
             }
         }
     }
 
+    private fun isSupportedForManualRename(name: String?): Boolean {
+        if (name.isNullOrBlank()) return false
+        val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        return extension in setOf("mkv", "mp4", "avi", "srt")
+    }
+
     private fun scan(uri: Uri): Pair<List<RenameItem>, String> {
-        val folder = DocumentFile.fromTreeUri(this, uri) ?: return emptyList<RenameItem>() to "Não foi possível abrir a pasta."
+        val folder = DocumentFile.fromTreeUri(this, uri) ?: return emptyList<RenameItem>() to getString(R.string.folder_open_error)
         val files = folder.listFiles().filter { it.isFile && it.name != null }
         val videoExt = setOf("mkv", "mp4", "avi", "mov", "m4v", "wmv", "webm", "ts")
         val subtitleExtensions = setOf("srt", "ass", "ssa", "sub", "vtt")
@@ -108,11 +245,11 @@ class MainActivity : ComponentActivity() {
             if (ext !in videoExt) return@mapNotNull null
             Triple(f, ep, ext)
         }.sortedBy { it.second }
-        if (videos.isEmpty()) return emptyList<RenameItem>() to "Não encontrei vídeos com temporada/episódio reconhecíveis (ex.: S01E01 ou 1x01)."
+        if (videos.isEmpty()) return emptyList<RenameItem>() to getString(R.string.no_episode_videos)
         val plan = mutableListOf<RenameItem>()
         videos.forEach { (video, ep, ext) ->
             val base = ep.label()
-            plan += RenameItem(video, video.name!!, "$base.$ext", "Vídeo")
+            plan += RenameItem(video, video.name!!, "$base.$ext", "Video")
             val relatedSubs = files.filter { sub ->
                 val subName = sub.name ?: return@filter false
                 val subtitleExt = subName.substringAfterLast('.', "").lowercase()
@@ -121,21 +258,23 @@ class MainActivity : ComponentActivity() {
             relatedSubs.forEach { sub ->
                 val old = sub.name!!
                 val suffix = old.substringAfterLast('.', "")
-                val newName = "$base.$suffix"
-                plan += RenameItem(sub, old, newName, "Legenda")
+                val oldBase = old.substringBeforeLast('.', old)
+                val languageSuffix = Regex("""(?i)S\\d{1,2}[ ._-]*E\\d{1,3}([._ -].*)$""")
+                    .find(oldBase)?.groupValues?.getOrNull(1).orEmpty()
+                plan += RenameItem(sub, old, "$base$languageSuffix.$suffix", "Subtitle")
             }
         }
-        val collisions = plan.groupBy { it.newName.lowercase() }.filterValues { it.size > 1 }.keys
-        val safe = plan.filter { it.newName.lowercase() !in collisions }
+        val collisions = plan.groupBy { it.newName.lowercase(Locale.ROOT) }.filterValues { it.size > 1 }.keys
+        val safe = plan.filter { it.newName.lowercase(Locale.ROOT) !in collisions }
         val skipped = plan.size - safe.size
-        return safe to "Pré-visualização: ${safe.size} alterações possíveis. ${if (skipped > 0) "$skipped itens ignorados por nomes repetidos." else "Sem conflitos detetados."}"
+        return safe to getString(R.string.preview_status, safe.size, skipped)
     }
 
     private fun parseEpisode(name: String): Episode? {
         val patterns = listOf(
-            Regex("""(?i)(?:^|[^A-Za-z0-9])S(\d{1,2})[ ._-]*E(\d{1,3})(?:[^0-9]|$)"""),
-            Regex("""(?i)(?:^|[^0-9])(\d{1,2})x(\d{1,3})(?:[^0-9]|$)"""),
-            Regex("""(?i)season[ ._-]*(\d{1,2}).{0,20}?episode[ ._-]*(\d{1,3})""")
+            Regex("""(?i)(?:^|[^A-Za-z0-9])S(\\d{1,2})[ ._-]*E(\\d{1,3})(?:[^0-9]|$)"""),
+            Regex("""(?i)(?:^|[^0-9])(\\d{1,2})x(\\d{1,3})(?:[^0-9]|$)"""),
+            Regex("""(?i)season[ ._-]*(\\d{1,2}).{0,20}?episode[ ._-]*(\\d{1,3})""")
         )
         for (pattern in patterns) {
             val match = pattern.find(name) ?: continue
@@ -147,19 +286,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyRenames(plan: List<RenameItem>): String {
-        val first = plan.firstOrNull() ?: return "Não existem ficheiros para renomear."
-        val parent = first.file.parentFile ?: return "Não foi possível aceder à pasta."
+        val first = plan.firstOrNull() ?: return getString(R.string.nothing_to_rename)
+        val parent = first.file.parentFile ?: return getString(R.string.folder_open_error)
         val pending = plan.filter { it.oldName != it.newName }
-        if (pending.isEmpty()) return "Os ficheiros já estão organizados."
+        if (pending.isEmpty()) return getString(R.string.already_organized)
 
         val sourceNames = pending.map { it.oldName.lowercase(Locale.ROOT) }.toSet()
         val existingTargets = parent.listFiles().mapNotNull { it.name }
             .map { it.lowercase(Locale.ROOT) }.toSet() - sourceNames
         if (pending.any { it.newName.lowercase(Locale.ROOT) in existingTargets }) {
-            return "Operação cancelada: já existe um ficheiro com um dos nomes de destino. Não foi alterado nenhum ficheiro."
+            return getString(R.string.auto_rename_conflict)
         }
 
-        // DocumentFile pode conservar um URI antigo após renameTo. Reobter sempre o ficheiro pela pasta.
         val temporaryNames = pending.indices.map { index ->
             val ext = pending[index].oldName.substringAfterLast(".", "")
             if (ext.isNotEmpty()) ".__kodi_series_tmp_$index.$ext" else ".__kodi_series_tmp_$index"
@@ -169,7 +307,7 @@ class MainActivity : ComponentActivity() {
             val current = parent.findFile(item.oldName)
             if (current == null || !current.renameTo(temporaryNames[index])) {
                 staged.asReversed().forEach { (temp, original) -> parent.findFile(temp)?.renameTo(original) }
-                return "Não foi possível preparar a renomeação de ${item.oldName}. Foi tentada a reposição dos nomes originais."
+                return getString(R.string.auto_rename_prepare_failed, item.oldName)
             }
             staged += temporaryNames[index] to item.oldName
         }
@@ -183,12 +321,12 @@ class MainActivity : ComponentActivity() {
                     if (stagedFile != null) stagedFile.renameTo(original)
                     else parent.findFile(pending.first { it.oldName == original }.newName)?.renameTo(original)
                 }
-                return "Não foi possível concluir a renomeação de ${item.oldName}. Foi tentada a reposição dos nomes originais."
+                return getString(R.string.auto_rename_finish_failed, item.oldName)
             }
         }
 
         val missing = pending.filter { parent.findFile(it.newName) == null }
-        return if (missing.isEmpty()) "Concluído: ${pending.size} ficheiros renomeados e verificados com sucesso."
-        else "Atenção: a operação terminou, mas não foi possível validar: ${missing.joinToString { it.newName }}."
+        return if (missing.isEmpty()) getString(R.string.auto_rename_success, pending.size)
+        else getString(R.string.auto_rename_verify_failed, missing.joinToString { it.newName })
     }
 }
