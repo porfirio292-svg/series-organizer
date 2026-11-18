@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kodi Series File Organizer</string>
+    <string name="app_description">Organize video files and subtitles in one folder using the season and episode found in their original names.</string>
+    <string name="select_folder">Select folder</string>
+    <string name="select_folder_hint">Select the folder containing your episodes.</string>
+    <string name="folder_permission_error">Could not get permission to access this folder.</string>
+    <string name="folder_read_error">Could not read the selected folder.</string>
+    <string name="folder_open_error">Could not open the folder.</string>
+    <string name="files_in_folder">Files in folder (%1$d)</string>
+    <string name="no_supported_files">No MKV, MP4, AVI or SRT files found.</string>
+    <string name="rename">Rename</string>
+    <string name="rename_file_title">Rename file</string>
+    <string name="new_file_name">New file name (without extension)</string>
+    <string name="extension_kept">The .%1$s extension will be kept.</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="name_empty_error">The file name cannot be empty.</string>
+    <string name="name_invalid_error">The file name cannot contain / or \\.</string>
+    <string name="name_exists_error">A file with that name already exists.</string>
+    <string name="rename_verify_error">The rename was requested, but the new name could not be verified. The list will be refreshed.</string>
+    <string name="rename_failed_error">Could not rename the file. Check folder permissions and try again.</string>
+    <string name="manual_rename_success">File renamed to %1$s.</string>
+    <string name="auto_organization_preview">Automatic organization preview (%1$d changes)</string>
+    <string name="organizing">Organizing...</string>
+    <string name="apply_rename">Apply renaming</string>
+    <string name="rename_unexpected_error">An unexpected error occurred while renaming. The file list will be refreshed.</string>
+    <string name="no_episode_videos">No videos with a recognizable season/episode pattern were found (e.g. S01E01 or 1x01).</string>
+    <string name="preview_status">Preview: %1$d possible changes. %2$d files skipped due to duplicate target names.</string>
+    <string name="nothing_to_rename">There are no files to rename.</string>
+    <string name="already_organized">The files are already organized.</string>
+    <string name="auto_rename_conflict">Operation cancelled: a target file name already exists. No files were changed.</string>
+    <string name="auto_rename_prepare_failed">Could not prepare the rename of %1$s. Restoring the original names was attempted.</string>
+    <string name="auto_rename_finish_failed">Could not complete the rename of %1$s. Restoring the original names was attempted.</string>
+    <string name="auto_rename_success">Completed: %1$d files renamed and verified.</string>
+    <string name="auto_rename_verify_failed">Warning: operation ended, but these names could not be verified: %1$s.</string>
+</resources>
