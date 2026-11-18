@@ -32,3 +32,5 @@ jobs:
           name: Kodi_Series_File_Organizer_v1.3
           path: release/Kodi_Series_File_Organizer_v1.3.apk
           if-no-files-found: error
+
+# v1.3 build validation
