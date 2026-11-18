@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Series Organizer", style = MaterialTheme.typography.headlineMedium)
+                        Text("Kodi Series File Organizer", style = MaterialTheme.typography.headlineMedium)
                         Text("Organiza vídeos e legendas numa única pasta, usando a temporada e o episódio indicados nos nomes originais.")
                         Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) { Text("Selecionar pasta") }
                         Text(message, style = MaterialTheme.typography.bodyMedium)
@@ -72,14 +72,20 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     busy = true
                                     val outcome = applyRenames(items)
-                                    message = outcome
-                                    busy = false
                                     val uri = selectedTree
                                     if (uri != null) {
                                         val result = scan(uri)
                                         items = result.first
-                                        message += "\n" + result.second
+                                        message = outcome
+                                        if (outcome.startsWith("Concluído:")) {
+                                            message += "\nValidação concluída. Os ficheiros foram novamente lidos e a aplicação está pronta para a próxima pasta."
+                                        } else {
+                                            message += "\n" + result.second
+                                        }
+                                    } else {
+                                        message = outcome
                                     }
+                                    busy = false
                                 },
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text(if (busy) "A organizar..." else "Aplicar renomeação") }
@@ -141,30 +147,48 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyRenames(plan: List<RenameItem>): String {
-        val folder = plan.firstOrNull()?.file?.parentFile ?: return "Não existem ficheiros para renomear."
-        val changed = mutableListOf<Pair<DocumentFile, String>>()
+        val first = plan.firstOrNull() ?: return "Não existem ficheiros para renomear."
+        val parent = first.file.parentFile ?: return "Não foi possível aceder à pasta."
         val pending = plan.filter { it.oldName != it.newName }
-        val sourceNames = pending.map { it.oldName.lowercase() }.toSet()
-        val existingTargets = folder.listFiles().mapNotNull { it.name }.map { it.lowercase() }.toSet() - sourceNames
-        if (pending.any { it.newName.lowercase() in existingTargets }) {
-            return "Operação cancelada: já existem ficheiros com um dos nomes de destino. Não foi alterado nenhum ficheiro."
+        if (pending.isEmpty()) return "Os ficheiros já estão organizados."
+
+        val sourceNames = pending.map { it.oldName.lowercase(Locale.ROOT) }.toSet()
+        val existingTargets = parent.listFiles().mapNotNull { it.name }
+            .map { it.lowercase(Locale.ROOT) }.toSet() - sourceNames
+        if (pending.any { it.newName.lowercase(Locale.ROOT) in existingTargets }) {
+            return "Operação cancelada: já existe um ficheiro com um dos nomes de destino. Não foi alterado nenhum ficheiro."
         }
-        // Two-phase rename avoids collisions when source names already resemble destination names.
+
+        // DocumentFile pode conservar um URI antigo após renameTo. Reobter sempre o ficheiro pela pasta.
+        val temporaryNames = pending.indices.map { index ->
+            val ext = pending[index].oldName.substringAfterLast(".", "")
+            if (ext.isNotEmpty()) ".__kodi_series_tmp_$index.$ext" else ".__kodi_series_tmp_$index"
+        }
+        val staged = mutableListOf<Pair<String, String>>()
         pending.forEachIndexed { index, item ->
-            val extension = item.oldName.substringAfterLast('.', "")
-            val temp = if (extension.isNotEmpty()) ".__seriesorganizer_tmp_$index.$extension" else ".__seriesorganizer_tmp_$index"
-            if (!item.file.renameTo(temp)) {
-                changed.asReversed().forEach { (file, original) -> file.renameTo(original) }
-                return "Falha ao preparar a renomeação. Foi tentada a reposição dos nomes originais."
+            val current = parent.findFile(item.oldName)
+            if (current == null || !current.renameTo(temporaryNames[index])) {
+                staged.asReversed().forEach { (temp, original) -> parent.findFile(temp)?.renameTo(original) }
+                return "Não foi possível preparar a renomeação de ${item.oldName}. Foi tentada a reposição dos nomes originais."
             }
-            changed += item.file to item.oldName
+            staged += temporaryNames[index] to item.oldName
         }
+
         pending.forEachIndexed { index, item ->
-            if (!changed[index].first.renameTo(item.newName)) {
-                changed.forEach { (file, original) -> file.renameTo(original) }
-                return "Falha ao concluir a renomeação. Foi tentada a reposição dos nomes originais."
+            val tempName = temporaryNames[index]
+            val current = parent.findFile(tempName)
+            if (current == null || !current.renameTo(item.newName)) {
+                staged.asReversed().forEach { (temp, original) ->
+                    val stagedFile = parent.findFile(temp)
+                    if (stagedFile != null) stagedFile.renameTo(original)
+                    else parent.findFile(pending.first { it.oldName == original }.newName)?.renameTo(original)
+                }
+                return "Não foi possível concluir a renomeação de ${item.oldName}. Foi tentada a reposição dos nomes originais."
             }
         }
-        return "${pending.size} ficheiros renomeados com sucesso."
+
+        val missing = pending.filter { parent.findFile(it.newName) == null }
+        return if (missing.isEmpty()) "Concluído: ${pending.size} ficheiros renomeados e verificados com sucesso."
+        else "Atenção: a operação terminou, mas não foi possível validar: ${missing.joinToString { it.newName }}."
     }
 }
